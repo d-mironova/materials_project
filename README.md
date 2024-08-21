@@ -47,7 +47,3 @@ To run these scripts, you will need:
     ```bash
     ./charge_analysis/splitchg.pl PARCHG_file_name
     ```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
