@@ -1,0 +1,12 @@
+# Compiled source #
+*.out
+*.log
+*.aux
+
+# Temporary files #
+*.tmp
+*.temp
+
+# Data files #
+data/outputs/*
+

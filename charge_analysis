@@ -1,0 +1,85 @@
+#!/usr/bin/env perl
+# fixed completely by Daniel S. Apr 2013
+# can split a spin polarized CHGCAR or PARCHG file
+
+use warnings;
+use strict;
+
+sub trimsplit($){ # http://www.somacon.com/p114.php
+    my $string = shift;
+    chomp $string;
+    $string =~ s/^\s+//;
+    $string =~ s/\s+$//;
+    my @array = split(/\s+/,$string);
+    return @array;
+}
+
+(scalar @ARGV == 1) or die "usage: splitchg.pl <FILE>\n";
+
+open (IN1,$ARGV[0]) or die ("Can't open file $!");
+
+my $header1;
+foreach (1..6) { $header1 .= <IN1>; } # read the header of the CHGCAR
+
+{
+    my $atoms1 = <IN1>;  $header1 .= $atoms1;
+    print "atoms line form file: $atoms1";
+    my @atoms1 = trimsplit $atoms1;
+    my $sum1 = 0; $sum1 += $_ for @atoms1;
+    print "number of species: ". (scalar @atoms1) ."\nnumber of atoms: ".$sum1."\n";
+    foreach (1..$sum1+2) { $header1 .= <IN1>; }
+}
+
+my $points1 = <IN1>;  $header1 .= $points1;
+print "grid line from file: $points1";
+my @points1 = trimsplit $points1;
+my $psum1 = 1; $psum1 *= $_ for @points1;
+print "Points in total charge density: ".$psum1."\n";
+
+open (IN2,$ARGV[0]) or die ("Can't open file $!");
+{
+    my $lines_in_header = $header1 =~ tr/\n//;
+    foreach (0..$lines_in_header) { <IN2>; } # advance past the headers
+    while (<IN2>){ last if /$points1/ }
+}
+
+# total charge density (spin up plus spin down) part
+# magnetization density (spin up minus spin down) part
+print "writing $ARGV[0]_tot, $ARGV[0]_mag, $ARGV[0]_up, $ARGV[0]_dn ...\n";
+
+open (OUT1,">$ARGV[0]_tot");
+open (OUT2,">$ARGV[0]_mag");
+open (OUT3,">$ARGV[0]_up");
+open (OUT4,">$ARGV[0]_dn");
+print OUT1 $header1;
+print OUT2 $header1;
+print OUT3 $header1;
+print OUT4 $header1;
+
+my $readpoints1 = 0;
+my $readpoints2 = 0;
+while ( $readpoints1 < $psum1) {
+
+    my $line1 = <IN1>;    print OUT1 $line1;    my @line1 = trimsplit $line1;    $readpoints1 += scalar @line1;
+    my $line2 = <IN2>;    print OUT2 $line2;    my @line2 = trimsplit $line2;    $readpoints2 += scalar @line2;
+
+    foreach (@line1) { if ($_ =~ /\*/) {print "WARNING: 1st block - something is funny: $line1";} }
+    foreach (@line2) { if ($_ =~ /\*/) {print "WARNING: 2nd block - something is funny: $line2";} }
+
+    foreach my $i (0..$#line1){
+        print OUT3 "  ".(0.5 * $line1[$i] + 0.5 * $line2[$i]);
+        print OUT4 "  ".(0.5 * $line1[$i] - 0.5 * $line2[$i]);
+    }
+
+    print OUT3 "\n";
+    print OUT4 "\n";
+}
+print "wrote $readpoints1 points\n";
+die "ERROR: points 1 mismatch\n" unless ($readpoints1 == $psum1);
+die "ERROR: points 2 mismatch\n" unless ($readpoints2 == $psum1);
+close(OUT1);
+close(OUT2);
+close(OUT3);
+close(OUT4);
+close(IN1);
+close(IN2);
